@@ -29,7 +29,7 @@ router.post("/register", async (req: Request, res: Response) => {
 
   try {
     const existingUsers = await query<User[]>(
-      "SELECT * FROM users WHERE email = ?",
+      "SELECT * FROM users WHERE email = $1;",
       [email]
     );
     if (existingUsers.length > 0) {
@@ -40,7 +40,7 @@ router.post("/register", async (req: Request, res: Response) => {
     }
 
     const hashed = await bcrypt.hash(password, 10);
-    await exec("INSERT INTO users (email, password) VALUES (?, ?);", [
+    await exec("INSERT INTO users (email, password) VALUES ($1, $2);", [
       email,
       hashed,
     ]);
@@ -61,7 +61,7 @@ router.post("/login", async (req: Request, res: Response) => {
   }
 
   try {
-    const rows = await query<User[]>("SELECT * FROM users WHERE email = ?;", [
+    const rows = await query<User[]>("SELECT * FROM users WHERE email = $1;", [
       email,
     ]);
     const user = rows[0];

@@ -1,19 +1,19 @@
-import mysql from "mysql2/promise";
+import { Pool } from "pg";
 import dotenv from "dotenv";
-import type { ResultSetHeader, RowDataPacket } from "mysql2/promise";
 
 dotenv.config();
 
 const dbConfig = {
   host: process.env.DB_HOST || "localhost",
-  port: Number(process.env.DB_PORT) || 3306,
-  user: process.env.DB_USER || "root",
+  port: Number(process.env.DB_PORT) || 5432,
+  user: process.env.DB_USER || "postgres",
   password: process.env.DB_PASS || "",
   database: process.env.DB_NAME || "",
 };
 
-const pool = mysql.createPool(dbConfig);
+const pool = new Pool(dbConfig);
 
+// ✅ 接続終了
 export async function closePool() {
   try {
     await pool.end();
@@ -23,22 +23,22 @@ export async function closePool() {
   }
 }
 
-// SELECT
+// ✅ SELECTクエリ
 export async function query<T = any>(sql: string, params: any[] = []) {
   try {
-    const [rows] = await pool.execute<RowDataPacket[]>(sql, params);
-    return rows as T;
+    const result = await pool.query(sql, params);
+    return result.rows as T;
   } catch (e) {
     console.error("SQL実行中にエラーが発生しました。", e);
     throw e;
   }
 }
 
-// INSERT, UPDATE, DELETE
+// ✅ INSERT, UPDATE, DELETEクエリ
 export async function exec(sql: string, params: any[] = []) {
   try {
-    const [result] = await pool.execute<ResultSetHeader>(sql, params);
-    return result;
+    const result = await pool.query(sql, params);
+    return result; // result.rowCountなどで変更件数を確認可能
   } catch (e) {
     console.error("SQL実行中にエラーが発生しました。", e);
     throw e;

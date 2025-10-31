@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { exec, query } from "../db";
+import { exec, query } from "../db"; // ← pg版db.tsを使用
 import type { Request, Response } from "express";
 
 interface Todo {
@@ -20,10 +20,14 @@ function handleServerError(
   res.status(500).json({ error: message });
 }
 
+// ✅ Todo一覧取得
 router.get("/", async (req: Request, res: Response) => {
   try {
     const rows = await query<Todo>(
-      "SELECT id, title, completed, created_at as createdAt FROM todos WHERE user_id = ? ORDER BY createdAt DESC;",
+      `SELECT id, title, completed, created_at AS "createdAt"
+       FROM todos
+       WHERE user_id = $1
+       ORDER BY created_at DESC;`,
       [(req as any).user.id]
     );
     return res.status(200).json(rows);
@@ -32,6 +36,7 @@ router.get("/", async (req: Request, res: Response) => {
   }
 });
 
+// ✅ Todo作成
 router.post("/", async (req: Request, res: Response) => {
   const { title }: { title: string } = req.body;
   if (!title.trim()) {
@@ -44,7 +49,8 @@ router.post("/", async (req: Request, res: Response) => {
   }
   try {
     await exec(
-      "INSERT INTO todos (title, completed, created_at, user_id) VALUES (?, ?, ?, ?);",
+      `INSERT INTO todos (title, completed, created_at, user_id)
+       VALUES ($1, $2, $3, $4);`,
       [title, false, new Date(), (req as any).user.id]
     );
     res.status(201).json({ message: "Todoを追加しました。" });
@@ -53,6 +59,7 @@ router.post("/", async (req: Request, res: Response) => {
   }
 });
 
+// ✅ Todo更新
 router.put("/:id", async (req: Request, res: Response) => {
   const { title, completed } = req.body;
   if (!title.trim()) {
@@ -65,29 +72,39 @@ router.put("/:id", async (req: Request, res: Response) => {
   }
   try {
     const result = await exec(
-      "UPDATE todos SET title = ?, completed = ? WHERE id = ? AND user_id = ?;",
+      `UPDATE todos
+       SET title = $1, completed = $2
+       WHERE id = $3 AND user_id = $4;`,
       [title, completed, req.params.id, (req as any).user.id]
     );
-    if (result.affectedRows === 0) {
+
+    // ✅ PostgreSQLでは rowCount で影響行数を確認
+    if (result.rowCount === 0) {
       res.status(404).json({ error: "指定されたTodoが見つかりません。" });
       return;
     }
+
     res.status(200).json({ message: "Todoを更新しました。" });
   } catch (e) {
     handleServerError(res, e, "Todoの更新に失敗しました。");
   }
 });
 
+// ✅ Todo削除
 router.delete("/:id", async (req: Request, res: Response) => {
   try {
     const result = await exec(
-      "DELETE FROM todos WHERE id = ? AND user_id = ?;",
+      `DELETE FROM todos
+       WHERE id = $1 AND user_id = $2;`,
       [req.params.id, (req as any).user.id]
     );
-    if (result.affectedRows === 0) {
+
+    // ✅ rowCount で削除件数を確認
+    if (result.rowCount === 0) {
       res.status(404).json({ error: "指定されたTodoが見つかりません。" });
       return;
     }
+
     res.status(200).json({ message: "Todoを削除しました。" });
   } catch (e) {
     handleServerError(res, e, "Todoの削除に失敗しました。");
